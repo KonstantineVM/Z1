@@ -1,0 +1,293 @@
+# Economic Time Series Analysis Configuration
+
+# Application settings
+app:
+  name: "Economic Time Series Analysis"
+  version: "1.0.0"
+  environment: "production"  # development, staging, production
+  debug: false
+  log_level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+# Data configuration
+data:
+  # Cache settings
+  cache_directory: "./data/cache"
+  cache_expiry_days: 7
+  force_download: false
+  
+  # Federal Reserve data settings
+  fed_data:
+    base_url: "https://www.federalreserve.gov/DataDownload/Output.aspx"
+    start_year: 1960
+    end_year: 2024
+    timeout: 30
+    max_retries: 3
+    retry_delay: 2.0
+    
+    # Available sources
+    sources:
+      - Z1    # Flow of Funds
+      - H6    # Money Stock Measures
+      - H8    # Assets and Liabilities of Commercial Banks
+      - H15   # Selected Interest Rates
+      - G17   # Industrial Production and Capacity Utilization
+      - G19   # Consumer Credit
+      - G20   # Finance Companies
+    
+    # Series filters
+    filters:
+      frequency: "162"  # Quarterly
+      exclude_prefixes: ["FA", "PC", "LA", "FC", "FG"]  # Flow series
+  
+  # External data settings
+  external_data:
+    cache_directory: "./data/cache/external"
+    
+    # S&P 500
+    sp500:
+      symbol: "^GSPC"
+      start_date: "1960-01-01"
+      
+    # FRED series
+    fred:
+      api_key: "YOUR_FRED_API_KEY"  # Get from https://fred.stlouisfed.org/docs/api/api_key.html
+      series:
+        - DGS10    # 10-Year Treasury Rate
+        - DFF      # Federal Funds Rate
+        - UNRATE   # Unemployment Rate
+        - CPIAUCSL # Consumer Price Index
+        - DEXUSEU  # US/Euro Exchange Rate
+        
+    # Gold prices
+    gold:
+      symbol: "GC=F"
+      start_date: "1970-01-01"
+
+# Model configuration
+models:
+  # Unobserved Components Model
+  unobserved_components:
+    cycle_period: 32        # 8 years for quarterly data
+    damping_factor: 0.98    # Cycle persistence
+    stochastic_level: true  # Allow stochastic trend
+    stochastic_cycle: true  # Allow stochastic cycle
+    seasonal: true          # Include seasonal component
+    seasonal_period: 4      # Quarterly seasonality
+    
+  # Tree ensemble models
+  tree_ensemble:
+    # XGBoost settings
+    xgboost:
+      n_estimators: 100
+      max_depth: 5
+      learning_rate: 0.1
+      subsample: 0.8
+      colsample_bytree: 0.8
+      gamma: 0.1
+      reg_alpha: 0.1
+      reg_lambda: 1.0
+      
+    # LightGBM settings
+    lightgbm:
+      n_estimators: 100
+      max_depth: 5
+      learning_rate: 0.1
+      feature_fraction: 0.8
+      bagging_fraction: 0.8
+      bagging_freq: 5
+      lambda_l1: 0.1
+      lambda_l2: 1.0
+      
+  # Gaussian Process
+  gaussian_process:
+    kernel: "matern"  # rbf, matern, rational_quadratic
+    length_scale: 1.0
+    length_scale_bounds: [0.1, 10.0]
+    nu: 2.5  # For Matern kernel
+    alpha: 1e-6  # Noise level
+    n_restarts_optimizer: 10
+    
+  # Neural network settings
+  neural_network:
+    hidden_layers: [64, 32, 16]
+    activation: "relu"
+    dropout_rate: 0.2
+    batch_size: 32
+    epochs: 100
+    learning_rate: 0.001
+    early_stopping_patience: 10
+
+# Analysis configuration
+analysis:
+  # Statistical settings
+  significance_level: 0.05
+  confidence_level: 0.95
+  
+  # Feature engineering
+  feature_engineering:
+    max_lags: 12
+    lag_selection: "auto"  # auto, manual
+    rolling_window_sizes: [4, 8, 12, 20]
+    rolling_functions: ["mean", "std", "min", "max"]
+    include_interactions: true
+    polynomial_degree: 2
+    
+  # Economic analysis
+  economic_analysis:
+    # Velocity of money
+    velocity:
+      smoothing_window: 4
+      detrending_method: "hp_filter"  # hp_filter, linear, polynomial
+      hp_lambda: 1600  # For quarterly data
+      
+    # Interest rate impact
+    interest_rate:
+      max_lag: 8
+      var_lags: 4
+      impulse_response_periods: 20
+      
+    # Leading indicators
+    leading_indicators:
+      max_lag: 12
+      min_correlation: 0.3
+      granger_causality_lags: 4
+      
+    # Regime detection
+    regime_detection:
+      method: "hmm"  # hmm, cusum, structural_break
+      n_regimes: 3
+      transition_probabilities: "full"  # full, left-right
+
+# Visualization configuration
+visualization:
+  # General settings
+  style: "seaborn"
+  figsize: [12, 8]
+  dpi: 300
+  format: "png"  # png, pdf, svg
+  
+  # Color schemes
+  colors:
+    primary: "#1f77b4"
+    secondary: "#ff7f0e"
+    success: "#2ca02c"
+    danger: "#d62728"
+    warning: "#ff9800"
+    info: "#17a2b8"
+    
+  # NBER recession shading
+  show_recessions: true
+  recession_alpha: 0.3
+  recession_color: "gray"
+  
+  # Component plots
+  component_plots:
+    show_confidence_bands: true
+    confidence_alpha: 0.2
+    
+  # Economic plots
+  economic_plots:
+    add_regression_line: true
+    show_r_squared: true
+    add_labels: true
+
+# Performance settings
+performance:
+  # Parallel processing
+  n_jobs: -1  # -1 for all cores
+  backend: "multiprocessing"  # multiprocessing, threading
+  chunk_size: 1000
+  
+  # Memory management
+  low_memory_mode: false
+  max_memory_gb: 16
+  
+  # Caching
+  enable_caching: true
+  cache_backend: "disk"  # disk, redis
+  redis_url: "redis://localhost:6379"
+  
+# Logging configuration
+logging:
+  # Console logging
+  console:
+    enabled: true
+    level: "INFO"
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    
+  # File logging
+  file:
+    enabled: true
+    level: "DEBUG"
+    path: "./logs/app.log"
+    max_size_mb: 100
+    backup_count: 5
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
+    
+  # Performance logging
+  performance:
+    enabled: true
+    log_slow_operations: true
+    slow_operation_threshold_seconds: 5.0
+
+# API configuration (if using API)
+api:
+  enabled: false
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  reload: false
+  cors_origins: ["*"]
+  api_key_required: true
+  rate_limit: "100/hour"
+
+# Database configuration (optional)
+database:
+  enabled: false
+  url: "postgresql://user:password@localhost/econdb"
+  pool_size: 10
+  max_overflow: 20
+  echo: false
+
+# Notification settings
+notifications:
+  enabled: false
+  email:
+    smtp_server: "smtp.gmail.com"
+    smtp_port: 587
+    username: "your-email@gmail.com"
+    password: "your-app-password"
+    from_address: "your-email@gmail.com"
+    to_addresses: ["recipient@example.com"]
+  
+  slack:
+    webhook_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+    channel: "#econanalysis"
+    
+# Export settings
+export:
+  formats: ["csv", "excel", "parquet", "json"]
+  compression: "gzip"  # none, gzip, bz2, xz
+  include_metadata: true
+  
+# Validation settings
+validation:
+  # Data validation
+  data:
+    check_missing: true
+    max_missing_pct: 0.2
+    check_outliers: true
+    outlier_method: "iqr"  # iqr, zscore, isolation_forest
+    outlier_threshold: 3.0
+    
+  # Model validation
+  model:
+    cross_validation_folds: 5
+    test_size: 0.2
+    random_state: 42
+    
+  # Results validation
+  results:
+    check_stationarity: true
+    check_autocorrelation: true
+    check_heteroscedasticity: true

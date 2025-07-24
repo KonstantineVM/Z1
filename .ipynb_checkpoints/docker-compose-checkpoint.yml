@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # Main application
+  app:
+    build: .
+    container_name: econ-analysis
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./output:/app/output
+      - ./config:/app/config
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+    command: python -m src.cli.main
+    networks:
+      - econ-network
+
+  # Jupyter notebook server
+  notebook:
+    build: .
+    container_name: econ-notebook
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./data:/app/data
+      - ./notebooks:/app/notebooks
+      - ./src:/app/src
+      - ./output:/app/output
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    command: jupyter lab --ip=0.0.0.0 --no-browser --allow-root
+    networks:
+      - econ-network
+
+  # API server (optional)
+  api:
+    build: .
+    container_name: econ-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    environment:
+      - API_KEY=${API_KEY:-your-secret-key}
+      - LOG_LEVEL=INFO
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - econ-network
+    profiles:
+      - api
+
+  # Redis cache (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: econ-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - econ-network
+    profiles:
+      - cache
+
+  # PostgreSQL database (optional)
+  postgres:
+    image: postgres:14-alpine
+    container_name: econ-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=econuser
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-password}
+      - POSTGRES_DB=econdb
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - econ-network
+    profiles:
+      - database
+
+  # pgAdmin for database management (optional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: econ-pgadmin
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@example.com
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin}
+    networks:
+      - econ-network
+    profiles:
+      - database
+
+volumes:
+  redis-data:
+  postgres-data:
+
+networks:
+  econ-network:
+    driver: bridge

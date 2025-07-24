@@ -1,0 +1,5 @@
+fwtw:
+  url: "https://www.federalreserve.gov/releases/efa/fwtw_data.csv"
+  frequency: quarterly
+  type: network
+  cache_expiry_days: 30
