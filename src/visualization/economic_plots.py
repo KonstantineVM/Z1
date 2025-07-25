@@ -31,7 +31,7 @@ class EconomicVisualizer:
         """
         self.style = style
         self.figsize = figsize
-        plt.style.use(style)
+        sns.set_theme(style="darkgrid")
         
     def plot_decomposition(self, components: Dict[str, pd.DataFrame], 
                           series_name: str, 
