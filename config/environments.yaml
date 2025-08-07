@@ -1,30 +1,88 @@
-# config/environments.yaml
+# ==============================================================================
+# FILE: config/environments.yaml
+# ==============================================================================
+# Environment-specific configurations
+
 environments:
+  # Development environment
   development:
+    description: 'Local development environment'
+    
     data:
       use_cache: true
       cache_expiry_days: 30
-      sample_size: 1000  # Limit data for quick testing
+      sample_size: 1000  # Limit for quick iteration
+      
     validation:
       fail_on_violation: false
       log_level: DEBUG
       
-  production:
+    performance:
+      parallel: false  # Easier debugging
+      
+    output:
+      save_diagnostics: true
+      diagnostic_level: 'detailed'
+      
+  # Testing environment
+  test:
+    description: 'Automated testing environment'
+    
+    data:
+      use_cache: false  # Always fresh for tests
+      use_mock_data: true
+      
+    validation:
+      fail_on_violation: true
+      strict_mode: true
+      
+    output:
+      save_to_temp: true
+      cleanup_after: true
+      
+  # Staging environment
+  staging:
+    description: 'Pre-production staging'
+    
     data:
       use_cache: true
       cache_expiry_days: 1
-      sample_size: null  # Use all data
+      full_data: true
+      
     validation:
-      fail_on_violation: true
-      log_level: INFO
+      fail_on_violation: false
+      log_warnings: true
+      
     output:
       save_diagnostics: true
       backup_results: true
       
-  testing:
+  # Production environment
+  production:
+    description: 'Production environment'
+    
     data:
-      use_cache: false  # Always fresh data for tests
-      use_mock_data: true
+      use_cache: true
+      cache_expiry_days: 1
+      full_data: true
+      verify_integrity: true
+      
     validation:
-      fail_on_violation: true
-      strict_mode: true
+      fail_on_violation: false
+      log_level: INFO
+      alert_on_error: true
+      
+    performance:
+      parallel: true
+      optimize: true
+      
+    output:
+      save_diagnostics: true
+      backup_results: true
+      archive_previous: true
+      retention_days: 90
+      
+    monitoring:
+      enable: true
+      metrics_endpoint: '/metrics'
+      health_check: '/health'

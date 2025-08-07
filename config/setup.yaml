@@ -1,0 +1,63 @@
+# ==============================================================================
+# FILE: config/setup.yaml
+# ==============================================================================
+# Setup and initialization configuration
+
+setup:
+  # Directories to create
+  create_directories:
+    - '${SFC_PROJECT_ROOT:-.}/logs'
+    - '${SFC_PROJECT_ROOT:-.}/cache'
+    - '${SFC_PROJECT_ROOT:-.}/cache/z1'
+    - '${SFC_PROJECT_ROOT:-.}/cache/fwtw'
+    - '${SFC_PROJECT_ROOT:-.}/output'
+    - '${SFC_PROJECT_ROOT:-.}/output/development'
+    - '${SFC_PROJECT_ROOT:-.}/output/test'
+    - '${SFC_PROJECT_ROOT:-.}/output/production'
+    - '${SFC_PROJECT_ROOT:-.}/data'
+    - '${SFC_PROJECT_ROOT:-.}/data/raw'
+    - '${SFC_PROJECT_ROOT:-.}/data/processed'
+  
+  # Files to check
+  required_files:
+    - path: '${SFC_PROJECT_ROOT:-.}/data/fof_formulas_extracted.json'
+      required: false  # Can run without
+      create_if_missing: false
+  
+  # Environment variables to set
+  environment_variables:
+    SFC_PROJECT_ROOT:
+      default: '.'
+      description: 'Project root directory'
+    
+    SFC_ENV:
+      default: 'development'
+      description: 'Environment (development/test/staging/production)'
+    
+    SFC_LOG_LEVEL:
+      default: 'INFO'
+      description: 'Logging level'
+  
+  # Validation on startup
+  startup_validation:
+    check_python_version:
+      min_version: '3.8'
+      
+    check_packages:
+      required:
+        - pandas
+        - numpy
+        - scipy
+        - statsmodels
+        - pyyaml
+      optional:
+        - networkx
+        - matplotlib
+    
+    check_memory:
+      min_gb: 4
+      recommended_gb: 16
+    
+    check_disk_space:
+      min_gb: 10
+      location: '${SFC_PROJECT_ROOT:-.}/output'

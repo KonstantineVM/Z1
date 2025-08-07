@@ -1,0 +1,90 @@
+# ==============================================================================
+# FILE: config/data_quality.yaml
+# ==============================================================================
+# Data quality and validation rules
+
+data_quality:
+  # Z.1 data quality checks
+  z1_data:
+    checks:
+      - name: 'series_format'
+        description: 'Check series codes match expected pattern'
+        pattern: '^F[ALRUV]\d{2}\d{5}\d{3}
+  
+        action: 'warn'  # or 'fail'
+        
+      - name: 'date_continuity'
+        description: 'Check for missing dates'
+        max_gap_quarters: 1
+        action: 'warn'
+        
+      - name: 'value_range'
+        description: 'Check for unrealistic values'
+        min_value: -1e15  # -$1 quadrillion
+        max_value: 1e15   # $1 quadrillion
+        action: 'warn'
+        
+      - name: 'missing_data'
+        description: 'Check missing data percentage'
+        max_missing_pct: 0.5  # 50%
+        action: 'warn'
+  
+  # FWTW data quality checks
+  fwtw_data:
+    checks:
+      - name: 'code_validity'
+        description: 'Check sector and instrument codes'
+        validate_sectors: true
+        validate_instruments: false  # Don't validate - include all
+        action: 'warn'
+        
+      - name: 'bilateral_balance'
+        description: 'Check bilateral positions balance'
+        tolerance: 0.001  # 0.1%
+        action: 'warn'
+        
+      - name: 'position_size'
+        description: 'Check for outlier positions'
+        outlier_method: 'iqr'  # or 'zscore'
+        outlier_threshold: 3
+        action: 'log'
+  
+  # Formula validation
+  formulas:
+    checks:
+      - name: 'syntax_valid'
+        description: 'Check formula syntax'
+        action: 'fail'
+        
+      - name: 'series_exist'
+        description: 'Check referenced series exist'
+        action: 'warn'
+        
+      - name: 'circular_dependency'
+        description: 'Check for circular references'
+        action: 'fail'
+        
+      - name: 'identity_preservation'
+        description: 'Check accounting identities'
+        tolerance: 0.001
+        action: 'warn'
+  
+  # Output validation
+  output:
+    checks:
+      - name: 'market_clearing'
+        description: 'Verify market clearing'
+        tolerance: 0.02  # 2%
+        
+      - name: 'formula_satisfaction'
+        description: 'Verify formulas satisfied'
+        tolerance: 0.001  # 0.1%
+        
+      - name: 'fwtw_consistency'
+        description: 'Check FWTW consistency'
+        tolerance: 0.05  # 5%
+        
+      - name: 'temporal_consistency'
+        description: 'Check time series properties'
+        max_jump: 0.5  # 50% quarter-to-quarter
+

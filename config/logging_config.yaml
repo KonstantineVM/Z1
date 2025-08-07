@@ -1,75 +1,126 @@
 # ==============================================================================
-# FILE: config/logging_config.yaml
+# FILE: config/logging.yaml
 # ==============================================================================
-# Logging configuration for SFC integration
+# Logging configuration for SFC system
 
-logging:
-  version: 1
-  disable_existing_loggers: false
+version: 1
+disable_existing_loggers: false
+
+# Log formatters
+formatters:
+  standard:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
   
-  formatters:
-    standard:
-      format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-      datefmt: '%Y-%m-%d %H:%M:%S'
-    
-    detailed:
-      format: '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
-      datefmt: '%Y-%m-%d %H:%M:%S'
+  detailed:
+    format: '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
   
-  handlers:
-    console:
-      class: logging.StreamHandler
-      level: INFO
-      formatter: standard
-      stream: ext://sys.stdout
-    
-      file:
-        class: logging.handlers.RotatingFileHandler  # Better handler
-        level: DEBUG
-        formatter: detailed
-        filename: 'logs/sfc_kalman.log'
-        mode: 'a'
-        maxBytes: 10485760  # 10MB
-        backupCount: 5
-        # Create directory if doesn't exist
-        delay: true  # Don't create file until first log
-    
-    error_file:
-      class: logging.FileHandler
-      level: ERROR
-      formatter: detailed
-      filename: 'logs/sfc_errors.log'
-      mode: 'a'
-  
-  loggers:
-    # SFC components
-    src.models.unified_sfc_kalman:
-      level: DEBUG
-      handlers: [console, file]
-      propagate: false
-    
-    src.network.fwtw_z1_mapper:
-      level: INFO
-      handlers: [console, file]
-      propagate: false
-    
-    src.utils.network_discovery:
-      level: INFO
-      handlers: [console, file]
-      propagate: false
-    
-    # Parent Kalman filter
-    models.hierarchical_kalman_filter:
-      level: INFO
-      handlers: [console, file]
-      propagate: false
-  
-  root:
+  json:
+    class: 'pythonjsonlogger.jsonlogger.JsonFormatter'
+    format: '%(asctime)s %(name)s %(levelname)s %(message)s'
+
+# Log handlers
+handlers:
+  console:
+    class: logging.StreamHandler
     level: INFO
-    handlers: [console, file, error_file]
-    
-    setup:
-      create_directories:
-        - 'logs'
-        - 'output/diagnostics'
-        - 'cache/fwtw'    
+    formatter: standard
+    stream: ext://sys.stdout
+  
+  file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: '${SFC_PROJECT_ROOT:-.}/logs/sfc_kalman.log'
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    delay: true  # Don't create until first log
+  
+  error_file:
+    class: logging.handlers.RotatingFileHandler
+    level: ERROR
+    formatter: detailed
+    filename: '${SFC_PROJECT_ROOT:-.}/logs/sfc_errors.log'
+    maxBytes: 10485760
+    backupCount: 3
+    delay: true
+  
+  json_file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: json
+    filename: '${SFC_PROJECT_ROOT:-.}/logs/sfc_kalman.json'
+    maxBytes: 52428800  # 50MB
+    backupCount: 10
+    delay: true
+
+# Logger configurations
+loggers:
+  # SFC components
+  src.models.unified_sfc_kalman:
+    level: DEBUG
+    handlers: [console, file, json_file]
+    propagate: false
+  
+  src.network.fwtw_z1_mapper:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+  
+  src.utils.network_discovery:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+  
+  src.utils.formula_parser:
+    level: WARNING
+    handlers: [console, file]
+    propagate: false
+  
+  # Parent Kalman filter
+  models.hierarchical_kalman_filter:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+  
+  # Data loaders
+  src.data:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+  
+  src.network:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+
+# Root logger
+root:
+  level: INFO
+  handlers: [console, file, error_file]
+
+# Environment-specific overrides
+environments:
+  development:
+    root:
+      level: DEBUG
+    handlers:
+      console:
+        level: DEBUG
+  
+  production:
+    root:
+      level: WARNING
+    handlers:
+      console:
+        level: WARNING
+      file:
+        level: INFO
+  
+  test:
+    root:
+      level: DEBUG
+    handlers:
+      console:
+        level: ERROR  # Quiet for tests
