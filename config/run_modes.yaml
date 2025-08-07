@@ -1,0 +1,85 @@
+# ==============================================================================
+# FILE: config/run_modes.yaml
+# ==============================================================================
+# Different run configurations for various use cases
+
+run_modes:
+  # Quick test with limited data
+  test:
+    description: 'Quick test run with subset of data'
+    instruments: ['30641']  # Just corporate equity
+    sectors: ['10', '15', '26']  # Just 3 main sectors
+    date_range:
+      start: '2020-01-01'
+      end: '2023-12-31'
+      sfc:
+        enforcement:
+          enforce_formulas: true
+          enforce_fwtw: true
+          enforce_market_clearing: false  # Consistent path
+        constraints:
+          observation_weights:
+            fwtw_bilateral: 0.5  # Override specific weight
+    output:
+      save_diagnostics: true
+      save_filtered: true
+      save_smoothed: false
+  
+  # Full production run
+  production:
+    description: 'Full production run with all data'
+    instruments: 'all'
+    sectors: 'all'
+    date_range:
+      start: null  # Use all available
+      end: null
+    sfc_config:
+      enforce_fwtw: true
+      enforce_market_clearing: true
+      require_complete_data: false
+    kalman_params:
+      error_variance_ratio: 0.01
+      normalize_data: true
+    output:
+      save_diagnostics: true
+      save_filtered: true
+      save_smoothed: true
+  
+  # Analysis mode - focus on specific instrument
+  analysis_equity:
+    description: 'Detailed analysis of corporate equity'
+    instruments: ['30641']
+    sectors: 'all'
+    date_range:
+      start: '2010-01-01'
+      end: null
+    sfc_config:
+      enforce_fwtw: true
+      enforce_market_clearing: true
+      fwtw_weight: 0.4  # Higher weight for FWTW
+    validation:
+      market_clearing_tolerance: 0.01  # Stricter tolerance
+      log_warnings: true
+    output:
+      save_diagnostics: true
+      diagnostic_level: 'detailed'
+  
+  # Debugging mode
+  debug:
+    description: 'Debug mode with extensive logging'
+    instruments: ['30641']
+    sectors: ['10', '15']
+    date_range:
+      start: '2022-01-01'
+      end: '2022-12-31'
+    sfc_config:
+      enforce_fwtw: true
+      enforce_market_clearing: true
+    validation:
+      log_warnings: true
+      fail_on_violation: true
+    output:
+      save_diagnostics: true
+      diagnostic_level: 'verbose'
+      save_intermediate_states: true
+

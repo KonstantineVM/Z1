@@ -1,0 +1,57 @@
+Comprehensive Flow of Funds Decomposition Report
+============================================================
+
+Analysis Date: 2025-07-28 01:39:16
+
+## Summary Statistics
+Total Series Processed: 5
+Total Constraints Applied: 3691
+Series with Formulas: 3320
+Sectors Covered: 58
+
+## Constraint Satisfaction
+
+By Constraint Type:
+                mean_discrepancy      max_abs_discrepancy constraint_name
+                            mean  std                 max           count
+constraint_type                                                          
+flow_stock          -4056.984607  NaN        14333.249555               1
+market_clearing         0.000000  0.0            0.000000               4
+series_formula    -180979.027003  NaN       213344.838981               1
+
+## Series Characteristics
+
+Series by Sector and Type:
+is_derived   True
+sector_code      
+10              5
+
+## Model Diagnostics
+
+Convergence Statistics:
+       r_hat    ess_bulk    ess_tail
+count    0.0    5.000000    5.000000
+mean     NaN  460.893021  320.314320
+std      NaN   27.681179   39.831555
+min      NaN  413.898822  270.019865
+25%      NaN  465.167346  293.429542
+50%      NaN  465.995539  323.221871
+75%      NaN  472.466444  344.657737
+max      NaN  486.936952  370.242587
+
+## Network Analysis
+Total Nodes: 7269
+Total Edges: 11942
+Average Degree: 3.29
+
+Most Connected Series:
+  FA903090005: 37 connections - Instrument discrepancies; total miscellaneous asse...
+  FL903090005: 35 connections - Instrument discrepancies; total miscellaneous asse...
+  FL763093005: 32 connections - U.S.-chartered depository institutions, including ...
+  FA763093005: 32 connections - U.S.-chartered depository institutions, including ...
+  FL153020005: 29 connections - Households and nonprofit organizations; checkable ...
+  FA153020005: 28 connections - Households and nonprofit organizations; checkable ...
+  FA543190075: 27 connections - Life insurance companies, general accounts; total ...
+  FL543190075: 27 connections - Life insurance companies, general accounts; total ...
+  FL573073005: 25 connections - Private defined benefit pension funds; claims of p...
+  FL223073045: 25 connections - State and local government employee defined benefi...

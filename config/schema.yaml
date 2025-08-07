@@ -1,0 +1,28 @@
+# config/schema.yaml
+# JSON Schema for config validation
+type: object
+required: [sfc]
+properties:
+  sfc:
+    type: object
+    required: [data_sources, constraints, enforcement]
+    properties:
+      data_sources:
+        type: object
+        required: [z1_data, fwtw_data, formulas]
+      constraints:
+        type: object
+        properties:
+          observation_weights:
+            type: object
+            patternProperties:
+              ".*":
+                type: number
+                minimum: 0
+      enforcement:
+        type: object
+        properties:
+          enforce_formulas:
+            type: boolean
+          enforce_fwtw:
+            type: boolean

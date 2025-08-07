@@ -156,19 +156,19 @@ class TestCachedFedDataLoader(unittest.TestCase):
         mock_download.return_value = mock_data
         
         # First load - should download
-        data1 = self.loader.load_source('Z1')
+        data1 = self.loader.load_single_source('Z1')
         mock_download.assert_called_once()
         pd.testing.assert_frame_equal(data1, mock_data)
         
         # Second load - should use cache
         mock_download.reset_mock()
-        data2 = self.loader.load_source('Z1')
+        data2 = self.loader.load_single_source('Z1')
         mock_download.assert_not_called()
         pd.testing.assert_frame_equal(data2, mock_data)
         
         # Force refresh
         mock_download.reset_mock()
-        data3 = self.loader.load_source('Z1', force_refresh=True)
+        data3 = self.loader.load_single_source('Z1', force_refresh=True)
         mock_download.assert_called_once()
         pd.testing.assert_frame_equal(data3, mock_data)
 

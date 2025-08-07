@@ -1,4 +1,13 @@
 # tests/test_analysis.py  
+
+import unittest
+import pandas as pd
+import numpy as np
+from datetime import datetime
+
+from src.analysis.feature_engineering import FeatureEngineer
+from src.analysis.economic_analysis import EconomicAnalysis
+
 class TestFeatureEngineer(unittest.TestCase):
     """Test cases for FeatureEngineer"""
     

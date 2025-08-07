@@ -1,0 +1,63 @@
+# ==============================================================================
+# FILE: config/sectors.yaml
+# ==============================================================================
+# Sector configuration - ALL sectors included
+
+# Inclusion policy
+inclusion_policy: 'include_all'
+
+# Official Federal Reserve sector codes and names
+sectors:
+  '10': {name: 'Nonfinancial Corporate Business', category: 'nonfinancial', include: true}
+  '11': {name: 'Nonfinancial Noncorporate Business', category: 'nonfinancial', include: true}
+  '15': {name: 'Households and Nonprofit Organizations', category: 'household', include: true}
+  '21': {name: 'State and Local Governments', category: 'government', include: true}
+  '26': {name: 'Rest of World', category: 'foreign', include: true}
+  '31': {name: 'Federal Government', category: 'government', include: true}
+  '42': {name: 'Government-Sponsored Enterprises', category: 'gse', include: true}
+  '47': {name: 'Credit Unions', category: 'depository', include: true}
+  '50': {name: 'Other Financial Business', category: 'other_financial', include: true}
+  '51': {name: 'Property-Casualty Insurance Companies', category: 'insurance', include: true}
+  '54': {name: 'Life Insurance Companies', category: 'insurance', include: true}
+  '55': {name: 'Closed-End Funds', category: 'fund', include: true}
+  '56': {name: 'Exchange-Traded Funds', category: 'fund', include: true}
+  '59': {name: 'Private and Public Pension Funds', category: 'pension', include: true}
+  '61': {name: 'Finance Companies', category: 'finance', include: true}
+  '63': {name: 'Money Market Funds', category: 'fund', include: true}
+  '64': {name: 'Mortgage Real Estate Investment Trusts', category: 'reit', include: true}
+  '65': {name: 'Mutual Funds', category: 'fund', include: true}
+  '66': {name: 'Security Brokers and Dealers', category: 'broker_dealer', include: true}
+  '67': {name: 'Issuers of Asset-Backed Securities', category: 'abs', include: true}
+  '71': {name: 'Monetary Authority', category: 'central_bank', include: true}
+  '73': {name: 'Holding Companies', category: 'holding', include: true}
+  '74': {name: 'Banks in U.S.-Affiliated Areas', category: 'depository', include: true}
+  '75': {name: 'Foreign Banking Offices in U.S.', category: 'foreign_bank', include: true}
+  '76': {name: 'U.S.-Chartered Depository Institutions', category: 'depository', include: true}
+  '89': {name: 'All Sectors', category: 'aggregate', include: true, special: true}
+  '90': {name: 'Instrument Discrepancies', category: 'discrepancy', include: true, special: true}
+
+# Sector groups for analysis
+groups:
+  nonfinancial:
+    name: 'Nonfinancial Sectors'
+    sectors: ['10', '11', '15', '21', '31']
+    
+  financial:
+    name: 'Financial Sectors'
+    sectors: ['42', '47', '50', '51', '54', '55', '56', '59', '61', '63', '64', '65', '66', '67', '71', '73', '74', '75', '76']
+    
+  depository:
+    name: 'Depository Institutions'
+    sectors: ['47', '71', '74', '75', '76']
+    
+  insurance_pension:
+    name: 'Insurance and Pension'
+    sectors: ['51', '54', '59']
+    
+  funds:
+    name: 'Investment Funds'
+    sectors: ['55', '56', '63', '65']
+    
+  government:
+    name: 'Government'
+    sectors: ['21', '31', '71']

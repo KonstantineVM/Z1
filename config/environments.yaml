@@ -1,0 +1,30 @@
+# config/environments.yaml
+environments:
+  development:
+    data:
+      use_cache: true
+      cache_expiry_days: 30
+      sample_size: 1000  # Limit data for quick testing
+    validation:
+      fail_on_violation: false
+      log_level: DEBUG
+      
+  production:
+    data:
+      use_cache: true
+      cache_expiry_days: 1
+      sample_size: null  # Use all data
+    validation:
+      fail_on_violation: true
+      log_level: INFO
+    output:
+      save_diagnostics: true
+      backup_results: true
+      
+  testing:
+    data:
+      use_cache: false  # Always fresh data for tests
+      use_mock_data: true
+    validation:
+      fail_on_violation: true
+      strict_mode: true

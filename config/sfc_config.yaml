@@ -1,0 +1,157 @@
+# ==============================================================================
+# FILE: config/sfc_config.yaml
+# ==============================================================================
+# Main configuration for Stock-Flow Consistent Kalman Filter
+# Production-ready with all fixes applied
+
+version: '1.0'
+environment: '${SFC_ENV:-development}'
+
+sfc:
+  # Data sources with proper paths and validation
+  data_sources:
+    # Base directory can be overridden with environment variable
+    base_directory: '${SFC_PROJECT_ROOT:-.}'
+    
+    z1_data:
+      source_type: 'federal_reserve_z1'
+      cache_directory: '${SFC_PROJECT_ROOT:-.}/data/cache/z1'
+      raw_directory: '${SFC_PROJECT_ROOT:-.}/data/raw/z1'
+      file_pattern: 'Z1_*.xml'
+      required: true
+      
+    fwtw_data:
+      source_type: 'federal_reserve_fwtw'
+      url: 'https://www.federalreserve.gov/releases/efa/fwtw_data.csv'
+      cache_directory: '${SFC_PROJECT_ROOT:-.}/data/cache/fwtw'
+      cache_file: 'fwtw_data.parquet'
+      cache_expiry_hours: 168  # 1 week
+      required: false  # Can run without FWTW
+      
+    formulas:
+      primary_path: '${SFC_PROJECT_ROOT:-.}/data/fof_formulas_extracted.json'
+      backup_path: '${SFC_PROJECT_ROOT:-.}/data/fof_formulas_backup.json'
+      validation_required: true
+      allow_missing: false
+  
+  # Constraint weights (relative, will be normalized internally)
+  constraints:
+    # Relative reliability of different data sources
+    # These are RELATIVE weights - system will normalize
+    observation_reliability:
+      z1_direct_observation: 1.00    # Most reliable
+      formula_derived_value: 0.70     # 70% as reliable as direct
+      fwtw_bilateral_position: 0.30   # 30% as reliable
+      market_clearing_constraint: 0.10 # Soft constraint
+    
+    # Post-processing correction weights (0-1 scale)
+    correction_weights:
+      fwtw_correction: 0.3  # How much to correct toward FWTW
+      market_clearing: 0.1  # How much to enforce clearing
+    
+    # Application settings
+    application:
+      method: 'kalman_update'  # or 'post_processing'
+      max_iterations: 10       # For iterative methods
+      convergence_tolerance: 1e-6
+  
+  # Enforcement flags
+  enforcement:
+    formulas:
+      enforce: true
+      strict: false  # Don't fail on formula violations
+      
+    fwtw:
+      enforce: true
+      require_overlap: false  # Don't fail if no date overlap
+      min_overlap_fraction: 0.1  # Warn if < 10% overlap
+      include_all: true  # Include ALL instruments/sectors
+      
+    market_clearing:
+      enforce: true
+      method: 'soft_constraint'  # or 'hard_constraint'
+      by_instrument: true  # Clear by instrument
+  
+  # Kalman filter parameters
+  kalman:
+    state_space:
+      error_variance_ratio: 0.01
+      normalize_data: true
+      normalization_method: 'global_median'
+      transformation: 'square'  # or 'log'
+      
+    initialization:
+      method: 'diffuse'  # or 'stationary'
+      loglikelihood_burn: 10
+      use_exact_diffuse: false
+      
+    optimization:
+      max_iterations: 1000
+      tolerance: 1e-8
+      method: 'lbfgs'  # or 'powell'
+  
+  # Validation tolerances (realistic values)
+  validation:
+    formula_constraints:
+      relative_tolerance: 0.001  # 0.1% for exact formulas
+      absolute_tolerance: 100    # $100M USD
+      combination: 'or'          # Pass if either satisfied
+      
+    market_clearing:
+      relative_tolerance: 0.02   # 2% acceptable
+      absolute_tolerance: 1000   # $1B USD
+      combination: 'or'
+      
+    fwtw_positions:
+      relative_tolerance: 0.05   # 5% measurement error
+      absolute_tolerance: 500    # $500M USD
+      combination: 'or'
+      
+    actions:
+      log_warnings: true
+      fail_on_violation: false  # Continue even with violations
+      save_diagnostics: true
+      diagnostic_level: 'summary'  # 'summary', 'detailed', 'verbose'
+  
+  # Performance settings
+  performance:
+    parallel:
+      enable: false  # Parallel processing not yet implemented
+      n_jobs: -1     # Use all cores when enabled
+      
+    caching:
+      enable: true
+      cache_directory: '${SFC_PROJECT_ROOT:-.}/cache'
+      cache_processed_data: true
+      cache_filter_results: false
+      
+    memory:
+      max_series_in_memory: 10000
+      chunk_size: 1000
+      use_sparse_matrices: false
+  
+  # Output configuration
+  output:
+    # Directory structure with timestamp
+    output_dir: '${SFC_PROJECT_ROOT:-.}/output/${environment}/${run_timestamp}'
+    
+    formats:
+      filtered_series: 'csv'    # or 'parquet'
+      smoothed_series: 'csv'    # or 'parquet'
+      diagnostics: 'json'
+      plots: 'png'
+      
+    options:
+      compression: null  # or 'gzip', 'snappy' for parquet
+      denormalize: true  # Convert back to original scale
+      include_metadata: true
+      save_intermediate: false
+      
+    # What to save
+    save:
+      filtered: true
+      smoothed: true
+      predicted: false
+      residuals: false
+      state_covariance: false
+

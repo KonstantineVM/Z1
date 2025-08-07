@@ -1,0 +1,63 @@
+# ==============================================================================
+# FILE: config/instruments.yaml
+# ==============================================================================
+# Instrument configuration - INCLUSIVE approach
+# ALL instruments are included by default
+
+# Global policy
+inclusion_policy: 'include_all'
+
+# Default settings for ALL instruments
+defaults:
+  include_in_analysis: true   # Include everything
+  sectors_to_include: 'all'   # All sectors
+  min_position_size: 0        # No minimum threshold
+  units: 'millions_usd'       # Standard units
+  
+  # No data quality requirements - include everything
+  data_quality:
+    expected_coverage: 0.0    # No minimum
+    min_observations: 0       # Even single observation OK
+    max_missing_fraction: 1.0 # Accept any missing data
+
+# Instrument metadata (for reference only, not filtering)
+instruments:
+  '30110': {name: 'Monetary Gold and SDRs', category: 'reserve'}
+  '40100': {name: 'Interbank Assets and Liabilities', category: 'interbank'}
+  '30200': {name: 'Checkable Deposits and Currency', category: 'deposit'}
+  '30300': {name: 'Time and Savings Deposits', category: 'deposit'}
+  '30305': {name: 'Other deposits', category: 'deposit'}
+  '30340': {name: 'Money Market Fund Shares', category: 'fund'}
+  '20500': {name: 'Federal Funds and Security Repurchase Agreements', category: 'repo'}
+  '30691': {name: 'Open Market Paper', category: 'paper'}
+  '30611': {name: 'Treasury Securities', category: 'government'}
+  '30617': {name: 'Agency- and GSE-Backed Securities', category: 'agency'}
+  '30620': {name: 'Municipal Securities', category: 'muni'}
+  '30630': {name: 'Corporate and Foreign Bonds', category: 'corporate_debt'}
+  '30680': {name: 'Depository Institution Loans N.E.C.', category: 'loan'}
+  '30690': {name: 'Other Loans and Advances', category: 'loan'}
+  '30651': {name: 'Home Mortgages', category: 'mortgage'}
+  '30654': {name: 'Multifamily Residential Mortgages', category: 'mortgage'}
+  '30655': {name: 'Commercial Mortgages', category: 'mortgage'}
+  '30656': {name: 'Farm Mortgages', category: 'mortgage'}
+  '30660': {name: 'Consumer Credit', category: 'consumer'}
+  '30923': {name: 'Direct Investment: Intercompany debt', category: 'direct_investment'}
+  '30641': {name: 'Corporate Equities', category: 'equity'}
+  '30921': {name: 'Direct Investment: Equity', category: 'direct_investment'}
+  '30949': {name: 'Miscellaneous Other Equity', category: 'equity'}
+  '30642': {name: 'Mutual Fund Shares', category: 'fund'}
+  '30400': {name: 'Life Insurance Reserves', category: 'insurance'}
+  '30500': {name: 'Pension Entitlements', category: 'pension'}
+  '30700': {name: 'Trade Credit', category: 'trade'}
+  '30780': {name: 'Taxes Payable by Businesses', category: 'tax'}
+  '30940': {name: 'Identified Miscellaneous Financial Claims - Part I', category: 'misc'}
+  '30900': {name: 'Identified Miscellaneous Financial Claims - Part II', category: 'misc'}
+  '30930': {name: 'Unidentified Miscellaneous Financial Claims', category: 'misc'}
+
+# Explicit statement
+inclusion_statement:
+  policy: 'This configuration includes ALL instruments and ALL positions'
+  filtering: 'No filtering applied'
+  thresholds: 'No minimum thresholds'
+  exclusions: 'No instruments excluded'
+  rationale: 'Complete inclusion required for Stock-Flow Consistency'

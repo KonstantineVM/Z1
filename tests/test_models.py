@@ -1,15 +1,19 @@
 # tests/test_models.py
+import unittest
+import pandas as pd
+import numpy as np
+
+from src.models import UnobservedComponentsModel, TreeModelAnalyzer
+
 class TestUnobservedComponentsModel(unittest.TestCase):
-    """Test cases for UnobservedComponentsModel"""
     
     def setUp(self):
-        """Set up test fixtures"""
-        from src.models import UnobservedComponentsModel
-        
-        self.model = UnobservedComponentsModel(
-            cycle_period=8,
-            damping_factor=0.98
-        )
+        # Model expects config dict, not individual parameters
+        self.model = UnobservedComponentsModel({
+            'cycle': True,
+            'damped_cycle': True,
+            'seasonal': False  # Important: set to False
+        })
         
         # Create synthetic time series
         np.random.seed(42)
