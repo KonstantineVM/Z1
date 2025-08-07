@@ -205,8 +205,8 @@ class FWTWtoZ1Mapper:
                     continue
             
             # Build Z.1 series codes
-            asset_series = f"FA{holder_code}{instrument_code}005"
-            liability_series = f"FL{issuer_code}{instrument_code}005"
+            asset_series = f"FA{holder_code}{instrument_code}05"
+            liability_series = f"FL{issuer_code}{instrument_code}05"
             
             # Check availability if series list provided
             include_asset = True

@@ -105,13 +105,13 @@ class NetworkDiscovery:
                     for instrument in instruments:
                         # Include all prefixes for complete accounting
                         for prefix in ['FA', 'FL', 'FR', 'FU', 'FV']:
-                            series = f"{prefix}{sector.zfill(2)}{instrument.zfill(5)}005"
+                            series = f"{prefix}{sector.zfill(2)}{instrument.zfill(5)}05"
                             discovery['from_fwtw'].add(series)
                 
                 # Add market totals (sector 89)
                 for instrument in instruments:
                     for prefix in ['FA', 'FL']:
-                        total_series = f"{prefix}89{instrument.zfill(5)}005"
+                        total_series = f"{prefix}89{instrument.zfill(5)}05"
                         discovery['market_totals'].add(total_series)
                         
             except Exception as e:
@@ -129,7 +129,7 @@ class NetworkDiscovery:
         # Add totals for all instruments
         for instrument in instruments_found:
             for prefix in ['FA', 'FL']:
-                discovery['market_totals'].add(f"{prefix}89{instrument}005")
+                discovery['market_totals'].add(f"{prefix}89{instrument}05")
         
         # Combine all
         discovery['all_series'] = (
