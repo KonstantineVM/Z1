@@ -1,10 +1,13 @@
-# src/models/__init__.py
-"""
-Time series models
-"""
+"""Model implementations for Z1 project."""
 
-from .unobserved_components import UnobservedComponentsModel
-from .tree_models import TreeModelAnalyzer
-from .gaussian_process import GaussianProcessModel
+try:
+    from .hierarchical_kalman_filter import HierarchicalKalmanFilter
+except ImportError:
+    HierarchicalKalmanFilter = None
 
-__all__ = ['UnobservedComponentsModel', 'TreeModelAnalyzer', 'GaussianProcessModel']
+try:
+    from .sfc_kalman_filter_extended import SFCKalmanFilter
+except ImportError:
+    SFCKalmanFilter = None
+
+__all__ = ['HierarchicalKalmanFilter', 'SFCKalmanFilter']
