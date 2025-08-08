@@ -57,8 +57,8 @@ sfc:
       by_instrument: true
       
     formulas:
-      enforce: false  # Set to true if you have formulas
-      strict: false
+      enforce: true  # Set to true if you have formulas
+      strict: true
       
     fwtw:
       enforce: true

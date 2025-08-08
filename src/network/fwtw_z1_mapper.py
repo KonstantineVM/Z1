@@ -204,28 +204,29 @@ class FWTWtoZ1Mapper:
                 if not include_all:
                     continue
             
-            # Build Z.1 series codes
-            asset_series = f"FA{holder_code}{instrument_code}05"
-            liability_series = f"FL{issuer_code}{instrument_code}05"
-            
+            # Build Z.1 series codes - CORRECTED
+            # Both use FL prefix (levels), add .Q suffix for quarterly
+            holder_series = f"FL{holder_code}{instrument_code}05.Q"
+            issuer_series = f"FL{issuer_code}{instrument_code}05.Q"
+
             # Check availability if series list provided
-            include_asset = True
-            include_liability = True
-            
+            include_holder = True
+            include_issuer = True
+
             if available_z1_series and not include_all:
-                include_asset = asset_series in available_z1_series
-                include_liability = liability_series in available_z1_series
+                include_holder = holder_series in available_z1_series
+                include_issuer = issuer_series in available_z1_series
                 
-                if not include_asset and not include_liability:
+                if not include_holder and not include_issuer:
                     continue
-            
+
             mapped_positions.append({
                 'date': row['Date'],
                 'holder_code': holder_code,
                 'issuer_code': issuer_code,
                 'instrument_code': instrument_code,
-                'asset_series': asset_series if include_asset else None,
-                'liability_series': liability_series if include_liability else None,
+                'holder_series': holder_series if include_holder else None,  # Renamed from asset_series
+                'issuer_series': issuer_series if include_issuer else None,  # Renamed from liability_series
                 'level': float(row['Level']),
                 'holder_name': row.get('Holder Name', f'Sector_{holder_code}'),
                 'issuer_name': row.get('Issuer Name', f'Sector_{issuer_code}'),
