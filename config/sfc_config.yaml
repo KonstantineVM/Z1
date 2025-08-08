@@ -1,239 +1,126 @@
-# ==============================================================================
-# FILE: config/sfc_config.yaml
-# ==============================================================================
-# Main configuration for Stock-Flow Consistent Kalman Filter
-# Updated for full SFC implementation with constraint projection
-
-version: '2.0'  # Updated version for new SFC system
-environment: '${SFC_ENV:-development}'
+# Stock-Flow Consistent Kalman Filter Configuration
+# Simplified version that works with the fixed implementation
 
 sfc:
-  # Data sources with proper paths and validation
-  data_sources:
-    # Base directory can be overridden with environment variable
-    base_directory: '${SFC_PROJECT_ROOT:-.}'
-    
-    z1_data:
-      source_type: 'federal_reserve_z1'
-      cache_directory: '${SFC_PROJECT_ROOT:-.}/data/cache/z1'
-      raw_directory: '${SFC_PROJECT_ROOT:-.}/data/raw/z1'
-      file_pattern: 'Z1_*.xml'
-      required: true
-      
-    fwtw_data:
-      source_type: 'federal_reserve_fwtw'
-      url: 'https://www.federalreserve.gov/releases/efa/fwtw_data.csv'
-      cache_directory: '${SFC_PROJECT_ROOT:-.}/data/cache/fwtw'
-      cache_file: 'fwtw_data.parquet'
-      cache_expiry_hours: 168  # 1 week
-      required: false  # Can run without FWTW
-      
-    formulas:
-      primary_path: '${SFC_PROJECT_ROOT:-.}/data/fof_formulas_extracted.json'
-      backup_path: '${SFC_PROJECT_ROOT:-.}/data/fof_formulas_backup.json'
-      validation_required: false  # Set to false if file doesn't exist
-      allow_missing: true  # Allow missing formulas
+  # Core settings
+  enforce_sfc: true                    # Enable stock-flow consistency
+  enforce_market_clearing: true        # Enable market clearing constraints
+  bilateral_weight: 0.3                 # Weight for bilateral constraints
+  error_variance_ratio: 0.01           # Measurement error ratio
+  normalize_data: true                 # Normalize before filtering
+  transformation: 'square'              # Transformation type for hierarchy
   
-  # SFC enforcement settings (NEW STRUCTURE)
-  enforcement:
-    # Master switch for SFC constraints
-    enforce_sfc: true  # Enable full stock-flow consistency
-    
-    # Individual constraint types
-    stock_flow_consistency:
-      enforce: true
-      method: 'exact'  # 'exact' or 'soft'
-      weight: 1.0  # Weight for soft constraints (ignored for exact)
-      
-    bilateral_consistency:
-      enforce: true
-      method: 'soft'  # FWTW data has measurement error
-      weight: 0.3
-      
-    market_clearing:
-      enforce: true
-      method: 'soft'  # Allow small discrepancies
-      weight: 0.1
-      by_instrument: true
-      
-    formulas:
-      enforce: true  # Set to true if you have formulas
-      strict: true
-      
-    fwtw:
-      enforce: true
-      require_overlap: false
-      min_overlap_fraction: 0.0  # Accept any overlap
-      include_all: true
+  # Data limits
+  max_series: 500                      # Maximum number of series to process
   
-  # Constraint weights for projection (NEW)
-  constraints:
-    # Weights for different constraint types in projection
-    stock_flow_weight: 0.5  # Weight for stock-flow identity
-    bilateral_weight: 0.3   # Weight for FWTW bilateral flows
-    fwtw_weight: 0.3       # Weight for FWTW positions
-    market_clearing_weight: 0.1  # Weight for market clearing
-    
-    # Projection settings
-    projection:
-      method: 'exact'  # 'exact' or 'weighted'
-      regularization: 1e-10  # Numerical stability
-      max_iterations: 100  # For iterative solvers
-      tolerance: 1e-8
-      use_sparse: true  # Use sparse matrices for large systems
+  # Output settings
+  output_dir: './output'               # Base output directory
+  create_visualizations: true          # Generate plots
   
-  # Kalman filter parameters
-  kalman:
-    # State space configuration
-    state_space:
-      include_flows: true  # Include flow states (NEW)
-      include_trends: true  # Include trend components
-      error_variance_ratio: 0.01
-      normalize_data: true
-      normalization_method: 'global_median'
-      transformation: 'square'  # or 'log'
-      
-    initialization:
-      method: 'diffuse'
-      loglikelihood_burn: 10
-      use_exact_diffuse: false
-      
-    optimization:
-      max_iterations: 1000
-      tolerance: 1e-8
-      method: 'lbfgs'
+  # Data paths
+  cache_dir: './data/cache'            # Cache directory for data
+  base_dir: './data/fed_data'          # Base directory for Fed data
   
-  # Performance settings (UPDATED)
-  performance:
-    # Series selection and limiting
-    max_series: 500  # Maximum series to process (memory limit)
-    prioritize_pairs: true  # Prioritize stock-flow pairs
-    priority_sectors:  # Sectors to prioritize
-      - '10'  # Nonfinancial corporate
-      - '15'  # Households
-      - '26'  # Rest of world
-      - '31'  # Federal government
-      - '40'  # Financial sector aggregate
-      - '70'  # Private depository institutions
-      - '89'  # All sectors
-      - '90'  # Instrument discrepancies
-    
-    # Memory management
-    memory:
-      max_series_in_memory: 500  # Reduced for SFC complexity
-      chunk_size: 100  # Process in chunks if needed
-      use_sparse_matrices: true  # Use sparse for constraints
-      
-    # Computational settings
-    parallel:
-      enable: false
-      n_jobs: -1
-      
-    caching:
-      enable: true
-      cache_directory: '${SFC_PROJECT_ROOT:-.}/cache'
-      cache_processed_data: true
-      cache_filter_results: false
-  
-  # Validation settings (UPDATED)
-  validation:
-    # Stock-flow consistency tolerance
-    stock_flow:
-      relative_tolerance: 1e-6  # Very tight for accounting identity
-      absolute_tolerance: 1.0   # $1M USD
-      check_every_period: true
-      
-    # Bilateral consistency tolerance  
-    bilateral:
-      relative_tolerance: 0.05  # 5% for FWTW measurement error
-      absolute_tolerance: 100   # $100M USD
-      
-    # Market clearing tolerance
-    market_clearing:
-      relative_tolerance: 0.02  # 2% acceptable
-      absolute_tolerance: 1000  # $1B USD
-      
-    # Formula constraints (if used)
-    formula_constraints:
-      relative_tolerance: 0.001
-      absolute_tolerance: 100
-      
-    # Validation actions
-    actions:
-      log_warnings: true
-      fail_on_violation: false
-      save_diagnostics: true
-      diagnostic_level: 'detailed'  # 'summary', 'detailed', 'verbose'
-      report_frequency: 10  # Report every N time periods
-  
-  # Output configuration
-  output:
-    # Output directory (simplified)
-    output_dir: './output'
-    
-    # What to save
-    save_filtered: true
-    save_smoothed: true
-    save_bilateral_flows: true  # NEW: Save calculated bilateral flows
-    save_constraint_diagnostics: true  # NEW: Save constraint validation
-    
-    # Output formats
-    format: 'csv'  # 'csv' or 'parquet'
-    compression: null  # null, 'gzip', 'bz2'
-    
-    # Output options
-    denormalize: true  # Convert back to original scale
-    include_metadata: true
-    save_intermediate: false
-    
-    # Diagnostic outputs (NEW)
-    diagnostics:
-      save_constraint_violations: true
-      save_projection_adjustments: true
-      save_state_evolution: false  # Large file
-      plot_constraint_satisfaction: true
+  # Formula settings (optional)
+  enforce_formulas: false              # Disable if no formula file exists
+  formula_path: './data/fof_formulas_extracted.json'  # Path to formulas
 
-# Run modes for different use cases
+# Run mode configurations
+# These override the base settings above
 run_modes:
-  # Quick test with limited data
+  # Quick test mode - minimal data
   test:
-    sfc:
-      performance:
-        max_series: 50
-      enforcement:
-        enforce_sfc: true
-      validation:
-        diagnostic_level: 'verbose'
-        
-  # Development with moderate data
+    max_series: 50                    # Use only 50 series
+    enforce_market_clearing: false    # Disable market clearing for speed
+    enforce_formulas: false           # Skip formula constraints
+    create_visualizations: false      # Skip visualizations for speed
+    
+  # Development mode - moderate data  
   development:
-    sfc:
-      performance:
-        max_series: 200
-      enforcement:
-        enforce_sfc: true
-        stock_flow_consistency:
-          method: 'soft'  # Faster for development
-          
-  # Production with full constraints
+    max_series: 200                   # Use 200 series
+    enforce_sfc: true                 # Keep SFC constraints
+    enforce_formulas: false           # Skip formulas if issues
+    constraint_method: 'soft'         # Use soft constraints (faster)
+    
+  # Production mode - full data
   production:
-    sfc:
-      performance:
-        max_series: 500
-      enforcement:
-        enforce_sfc: true
-        stock_flow_consistency:
-          method: 'exact'  # Exact for production
-      validation:
-        diagnostic_level: 'detailed'
-        
-  # Large scale (if memory permits)
+    max_series: 500                   # Use up to 500 series  
+    enforce_sfc: true                 # Full SFC enforcement
+    enforce_market_clearing: true     # Full market clearing
+    enforce_formulas: false           # Enable if formula file exists
+    constraint_method: 'exact'        # Exact constraint enforcement
+    
+  # Large mode - maximum data (if memory permits)
   large:
-    sfc:
-      performance:
-        max_series: 1000
-        memory:
-          use_sparse_matrices: true
-      constraints:
-        projection:
-          use_sparse: true
+    max_series: 1000                  # Use up to 1000 series
+    enforce_sfc: true
+    enforce_market_clearing: true
+    use_sparse_matrices: true         # Use sparse matrices for memory
+
+# Series selection priorities
+# Which series to prioritize when limiting data
+series_priorities:
+  # Priority 1: Complete stock-flow pairs
+  prioritize_pairs: true              # Select FL-FU pairs together
+  
+  # Priority 2: Important sectors (from Z.1 documentation)
+  priority_sectors:
+    - '10'  # Nonfinancial corporate business
+    - '15'  # Households and nonprofit organizations  
+    - '26'  # Rest of the world
+    - '31'  # Federal government
+    - '70'  # Private depository institutions
+    - '89'  # All sectors (totals)
+    - '90'  # Instrument discrepancies
+    
+  # Priority 3: Important instruments
+  priority_instruments:
+    - '30641'  # Corporate equities
+    - '31305'  # Treasury securities
+    - '40005'  # Consumer credit
+
+# Validation tolerances
+# How close constraints must be satisfied
+validation:
+  stock_flow:
+    relative_tolerance: 1e-6          # Very tight for accounting
+    absolute_tolerance: 1.0           # $1M USD
+    
+  bilateral:
+    relative_tolerance: 0.05          # 5% for FWTW measurement error
+    absolute_tolerance: 100           # $100M USD
+    
+  market_clearing:
+    relative_tolerance: 0.02          # 2% acceptable
+    absolute_tolerance: 1000          # $1B USD
+    
+  formula:
+    relative_tolerance: 0.001         # 0.1% for formulas
+    absolute_tolerance: 100           # $100M USD
+
+# Performance tuning
+performance:
+  use_sparse_matrices: false          # Use sparse matrices (memory vs speed)
+  chunk_size: 1000                    # Process in chunks if needed
+  parallel_processing: false          # Use parallel processing
+  n_jobs: -1                          # Number of parallel jobs (-1 = all cores)
+  
+# Logging settings  
+logging:
+  level: 'INFO'                       # Logging level: DEBUG, INFO, WARNING, ERROR
+  file: null                          # Log file path (null = console only)
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  
+# Cache settings
+cache:
+  enabled: true                       # Use caching
+  expire_hours: 168                  # Cache expiry (1 week)
+  compression: 'snappy'               # Compression: none, snappy, gzip
+  
+# Output formats
+output:
+  save_filtered: true                 # Save filtered states
+  save_smoothed: true                 # Save smoothed states  
+  save_diagnostics: true              # Save constraint diagnostics
+  format: 'parquet'                   # Output format: csv, parquet
+  compression: 'snappy'               # Output compression
