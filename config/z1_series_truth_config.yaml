@@ -1,0 +1,163 @@
+# Z1 Series Structure Truth Configuration
+# Based on Federal Reserve Financial Accounts documentation
+
+z1_series_structure:
+  # Prefix definitions - THESE ARE THE FACTS
+  prefixes:
+    FA:
+      description: "Transactions at a seasonally adjusted annual rate (SAAR)"
+      type: "flow"
+      seasonal_adjustment: true
+      formula: "(FU + FS) * 4"
+      
+    FL:
+      description: "Level, not seasonally adjusted (NSA)"
+      type: "stock"  # This is the stock/level, NOT specifically liability
+      seasonal_adjustment: false
+      formula: "FL[t-1] + FU + FR + FV"
+      
+    FU:
+      description: "Transactions, not seasonally adjusted (NSA)"
+      type: "flow"
+      seasonal_adjustment: false
+      formula: "FL - FL[t-1] - FR - FV"
+      
+    FR:
+      description: "Revaluation"
+      type: "revaluation"
+      seasonal_adjustment: false
+      formula: "FL - FL[t-1] - FU - FV"
+      
+    FV:
+      description: "Other changes in volume"
+      type: "other_change"
+      seasonal_adjustment: false
+      formula: "FL - FL[t-1] - FU - FR"
+      
+    LA:
+      description: "Level, seasonally adjusted (SA)"
+      type: "stock"
+      seasonal_adjustment: true
+      formula: "LA[t-1] + FA/4 + FR + FV"
+      
+    FC:
+      description: "Change in unadjusted level"
+      type: "change"
+      seasonal_adjustment: false
+      formula: "FL - FL[t-1]"
+      
+    FG:
+      description: "Growth rate, seasonally adjusted (SA)"
+      type: "growth_rate"
+      seasonal_adjustment: true
+      formula: "FA / LA[t-1] * 100"
+
+  # Stock-Flow Consistency Rules
+  stock_flow_consistency:
+    primary_identity: "FL[t] = FL[t-1] + FU + FR + FV"
+    
+    # Mapping for stock-flow pairs
+    stock_flow_pairs:
+      - stock_prefix: "FL"  # Level (stock)
+        flow_prefix: "FU"   # Transaction (flow)
+        reval_prefix: "FR"  # Revaluation
+        other_prefix: "FV"  # Other changes
+        
+      - stock_prefix: "LA"  # Seasonally adjusted level
+        flow_prefix: "FA"   # Seasonally adjusted flow (divided by 4)
+        reval_prefix: "FR"  # Revaluation
+        other_prefix: "FV"  # Other changes
+
+  # FWTW to Z1 Mapping Rules
+  fwtw_mapping:
+    # FWTW bilateral positions map to FL series (levels/stocks)
+    # Both holder and issuer positions are FL series
+    bilateral_to_z1:
+      holder_position: "FL{holder_code}{instrument_code}05"  # Holder's asset level
+      issuer_position: "FL{issuer_code}{instrument_code}05"  # Issuer's liability level
+    
+    # Market clearing: For each instrument
+    # Sum of all holder FL series = Sum of all issuer FL series
+    market_clearing_rule: "Sum(FL_holders) = Sum(FL_issuers) for each instrument"
+
+  # Series digit structure
+  series_structure:
+    format: "{prefix}{sector}{instrument}{suffix}.{frequency}"
+    components:
+      prefix:
+        position: "0-1"
+        length: 2
+        description: "Series type (FA, FL, FU, etc.)"
+      
+      sector:
+        position: "2-3"
+        length: 2
+        description: "Sector code (10=Nonfinancial corporate, 15=Households, etc.)"
+      
+      instrument:
+        position: "4-8"
+        length: 5
+        description: "Instrument code (30641=Corporate equities, etc.)"
+      
+      calculation_type:
+        position: "9"
+        length: 1
+        values:
+          "0": "Input series with seasonal factor"
+          "1": "Input from NIPA"
+          "3": "Input with zero seasonal factor"
+          "5": "Computed series"
+          "6": "Percent series"
+      
+      frequency:
+        suffix: true
+        values:
+          "Q": "Quarterly"
+          "A": "Annual"
+
+  # Asset vs Liability determination
+  # This is NOT based on FA/FL prefix but on the CONTEXT
+  asset_liability_determination:
+    note: "FL series can represent either assets OR liabilities depending on context"
+    
+    # By instrument code patterns (simplified examples)
+    asset_instruments:
+      - "20***"  # Total assets (20000)
+      - "305**"  # Various asset positions
+      - "306**"  # Securities held as assets
+      
+    liability_instruments:
+      - "21***"  # Total liabilities (21000)
+      - "31***"  # Various liability positions
+      - "316**"  # Securities issued as liabilities
+    
+    # By sector context
+    # Example: FL103064105 = Nonfinancial corporate (10) corporate equities (30641)
+    # This is a LIABILITY (equity issued by the corporation)
+    # But FL153064105 = Households (15) corporate equities (30641)  
+    # This is an ASSET (equity owned by households)
+
+# Model configuration corrections
+sfc_model_corrections:
+  stock_flow_mapping:
+    correct_approach: |
+      For each instrument and sector:
+      1. FL series = stock/level (can be asset OR liability)
+      2. FU series = flow (transaction)
+      3. Identity: FL[t] = FL[t-1] + FU + FR + FV
+      
+      DO NOT assume:
+      - FA = assets (WRONG - FA is seasonally adjusted flow)
+      - FL = liabilities (WRONG - FL is level/stock)
+  
+  fwtw_integration:
+    correct_column_names:
+      old_wrong: ["asset_series", "liability_series"]
+      new_correct: ["holder_level_series", "issuer_level_series"]
+      # Or simply: ["holder_series", "issuer_series"] with understanding they're both FL
+  
+  market_clearing:
+    correct_rule: |
+      For each instrument:
+      Sum of FL series where sector is holder = Sum of FL series where sector is issuer
+      This requires knowing which sectors hold vs issue each instrument

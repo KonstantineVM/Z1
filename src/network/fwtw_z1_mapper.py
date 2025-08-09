@@ -1,9 +1,7 @@
-# ==============================================================================
-# FILE: src/network/fwtw_z1_mapper.py
-# ==============================================================================
 """
-Maps FWTW bilateral positions to Z.1 series codes.
-Uses official Federal Reserve sector and instrument codes.
+FWTWtoZ1Mapper - Clean implementation with no fuzzy logic.
+Maps FWTW bilateral positions to Z.1 FL (level/stock) series codes.
+FL series represent LEVELS (stocks), not liabilities!
 """
 
 import pandas as pd
@@ -12,42 +10,44 @@ from typing import Dict, List, Tuple, Optional, Set
 import logging
 import re
 from dataclasses import dataclass
-from pathlib import Path
+
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class Z1SeriesCode:
     """Represents a complete Z.1 series code."""
-    prefix: str  # FA, FL, FR, FU, FV (2 chars)
-    sector: str  # 2-digit sector code  
-    instrument: str  # 5-digit instrument code
-    suffix: str  # 3-digit suffix (usually "005")
+    prefix: str  # FL for levels, FU for flows, FR for revaluations, etc.
+    sector: str  # 2-digit sector code (Fed digits 1-2)
+    instrument: str  # 5-digit instrument code (Fed digits 3-7)
+    suffix: str  # 2-digit suffix (digit 8 always 0, digit 9 is calculation type)
     
     @property
     def full_code(self) -> str:
         return f"{self.prefix}{self.sector}{self.instrument}{self.suffix}"
     
-    @classmethod
-    def parse(cls, code: str) -> Optional['Z1SeriesCode']:
-        """Parse a Z.1 series code string."""
-        # Correct pattern: 2-char prefix + 2-digit sector + 5-digit instrument + 3-digit suffix
-        pattern = re.compile(r'^(F[ALRUV])(\d{2})(\d{5})(\d{3})$')
-        match = pattern.match(code)
-        if match:
-            return cls(
-                prefix=match.group(1),
-                sector=match.group(2),
-                instrument=match.group(3),
-                suffix=match.group(4)
-            )
-        return None
+    @property
+    def series_type(self) -> str:
+        """Return the type based on prefix."""
+        type_map = {
+            'FA': 'flow_saar',      # Flow, seasonally adjusted annual rate (NOT assets!)
+            'FL': 'level',          # Level/stock, not seasonally adjusted (NOT liabilities!)
+            'FU': 'flow',           # Flow/transaction, not seasonally adjusted
+            'FR': 'revaluation',    # Revaluation
+            'FV': 'other_change',   # Other volume changes
+            'LA': 'level_sa'        # Level, seasonally adjusted
+        }
+        return type_map.get(self.prefix, 'unknown')
 
 
 class FWTWtoZ1Mapper:
-    """Complete mapper with proper validation and flexible column handling."""
+    """
+    Maps FWTW bilateral positions to Z.1 series codes.
+    Both holder and issuer positions map to FL (level) series.
+    No fuzzy logic - requires exact column names and formats.
+    """
     
-    # Official Federal Reserve Sector Codes
+    # Official Federal Reserve Sector Codes - Hardcoded
     SECTOR_CODES = {
         '10': 'Nonfinancial Corporate Business',
         '11': 'Nonfinancial Noncorporate Business',
@@ -78,163 +78,211 @@ class FWTWtoZ1Mapper:
         '90': 'Instrument Discrepancies Sector'
     }
     
+    # Required FWTW columns - exact names required
+    REQUIRED_COLUMNS = {
+        'Date',
+        'Holder Code', 
+        'Issuer Code',
+        'Instrument Code',
+        'Level'
+    }
+    
+    # Optional columns
+    OPTIONAL_COLUMNS = {
+        'Holder Name',
+        'Issuer Name', 
+        'Instrument Name'
+    }
+    
     def __init__(self):
         self.valid_sectors = set(self.SECTOR_CODES.keys())
-        self.discovered_instruments = set()
-        self.unmapped_items = []
         
-    def validate_and_standardize_fwtw(self, fwtw_data: pd.DataFrame) -> pd.DataFrame:
+    def validate_fwtw_data(self, fwtw_data: pd.DataFrame) -> pd.DataFrame:
         """
-        Validate FWTW data and standardize column names.
-        Handles multiple possible column name formats.
-        """
-        # Map possible column names to standard names
-        column_mappings = {
-            'Date': ['Date', 'date', 'DATE', 'Period', 'period'],
-            'Holder Code': ['Holder Code', 'holder_code', 'HolderCode', 'holder'],
-            'Issuer Code': ['Issuer Code', 'issuer_code', 'IssuerCode', 'issuer'],
-            'Instrument Code': ['Instrument Code', 'instrument_code', 'InstrumentCode'],
-            'Level': ['Level', 'level', 'Value', 'value', 'Amount'],
-            'Holder Name': ['Holder Name', 'holder_name', 'HolderName'],
-            'Issuer Name': ['Issuer Name', 'issuer_name', 'IssuerName'],
-            'Instrument Name': ['Instrument Name', 'instrument_name', 'InstrumentName']
-        }
-        
-        standardized = fwtw_data.copy()
-        
-        for standard_name, alternatives in column_mappings.items():
-            found = False
-            for alt in alternatives:
-                if alt in standardized.columns:
-                    if alt != standard_name:
-                        standardized = standardized.rename(columns={alt: standard_name})
-                    found = True
-                    break
-            
-            if not found and standard_name in ['Holder Code', 'Issuer Code', 'Instrument Code', 'Date', 'Level']:
-                raise ValueError(f"Required column '{standard_name}' not found. "
-                               f"Available columns: {list(fwtw_data.columns)}")
-        
-        # Validate and clean data types
-        standardized['Holder Code'] = standardized['Holder Code'].astype(str).str.zfill(2)
-        standardized['Issuer Code'] = standardized['Issuer Code'].astype(str).str.zfill(2)
-        standardized['Instrument Code'] = standardized['Instrument Code'].astype(str).str.zfill(5)
-        standardized['Level'] = pd.to_numeric(standardized['Level'], errors='coerce')
-        
-        # Handle date format
-        standardized['Date'] = self._parse_fwtw_dates(standardized['Date'])
-        
-        # Discover instruments
-        self.discovered_instruments.update(standardized['Instrument Code'].unique())
-        
-        # Remove invalid rows
-        initial_len = len(standardized)
-        standardized = standardized.dropna(subset=['Level', 'Date'])
-        if len(standardized) < initial_len:
-            logger.warning(f"Dropped {initial_len - len(standardized)} rows with invalid data")
-        
-        return standardized
-    
-    def _parse_fwtw_dates(self, date_series: pd.Series) -> pd.Series:
-        """Parse FWTW dates handling multiple formats."""
-        if pd.api.types.is_datetime64_any_dtype(date_series):
-            return date_series
-        
-        # Try different date formats
-        formats_to_try = [
-            '%Y%m%d',     # YYYYMMDD
-            '%Y-%m-%d',   # YYYY-MM-DD
-            '%m/%d/%Y',   # MM/DD/YYYY
-            '%Y%m',       # YYYYMM (monthly)
-            None          # Let pandas infer
-        ]
-        
-        for fmt in formats_to_try:
-            try:
-                return pd.to_datetime(date_series, format=fmt)
-            except:
-                continue
-        
-        # Handle YYYYQQ format (e.g., "2024Q1")
-        if date_series.astype(str).str.match(r'^\d{4}Q\d$').all():
-            year = date_series.str[:4].astype(int)
-            quarter = date_series.str[5:].astype(int)
-            month = (quarter - 1) * 3 + 1
-            return pd.to_datetime(year.astype(str) + '-' + month.astype(str).str.zfill(2) + '-01')
-        
-        # Handle YYYY:Q format (e.g., "2024:1")
-        if date_series.astype(str).str.match(r'^\d{4}:\d$').all():
-            year = date_series.str[:4].astype(int)
-            quarter = date_series.str[5:].astype(int)
-            month = (quarter - 1) * 3 + 1
-            return pd.to_datetime(year.astype(str) + '-' + month.astype(str).str.zfill(2) + '-01')
-        
-        raise ValueError(f"Could not parse date format. Sample values: {date_series.head()}")
-    
-    def map_to_z1_series(self, fwtw_data: pd.DataFrame,
-                         available_z1_series: Optional[Set[str]] = None,
-                         include_all: bool = True) -> pd.DataFrame:
-        """
-        Map FWTW to Z.1 series with complete validation.
+        Validate FWTW data structure. No fuzzy matching - exact requirements.
         
         Parameters:
         -----------
-        include_all : bool
-            If True, include ALL positions (no filtering)
+        fwtw_data : pd.DataFrame
+            FWTW data with required columns
+            
+        Returns:
+        --------
+        pd.DataFrame
+            Validated and formatted data
+            
+        Raises:
+        -------
+        ValueError
+            If required columns are missing or data is invalid
         """
-        # Standardize FWTW data first
-        fwtw_clean = self.validate_and_standardize_fwtw(fwtw_data)
+        # Check required columns exist
+        missing_columns = self.REQUIRED_COLUMNS - set(fwtw_data.columns)
+        if missing_columns:
+            raise ValueError(
+                f"Missing required columns: {missing_columns}. "
+                f"Available columns: {list(fwtw_data.columns)}"
+            )
         
-        mapped_positions = []
-        self.unmapped_items = []
+        # Create clean copy
+        clean_data = fwtw_data.copy()
         
-        for _, row in fwtw_clean.iterrows():
+        # Validate and format Date column
+        if not pd.api.types.is_datetime64_any_dtype(clean_data['Date']):
+            # Require datetime type
+            raise ValueError("'Date' column must be datetime64 type")
+        
+        # Format sector codes - must be 2 digits
+        clean_data['Holder Code'] = clean_data['Holder Code'].astype(str).str.zfill(2)
+        clean_data['Issuer Code'] = clean_data['Issuer Code'].astype(str).str.zfill(2)
+        
+        # Format instrument codes - must be 5 digits
+        clean_data['Instrument Code'] = clean_data['Instrument Code'].astype(str).str.zfill(5)
+        
+        # Validate Level is numeric
+        if not pd.api.types.is_numeric_dtype(clean_data['Level']):
+            clean_data['Level'] = pd.to_numeric(clean_data['Level'], errors='raise')
+        
+        # Remove rows with null values in required columns
+        initial_len = len(clean_data)
+        clean_data = clean_data.dropna(subset=list(self.REQUIRED_COLUMNS))
+        
+        if len(clean_data) < initial_len:
+            logger.info(f"Removed {initial_len - len(clean_data)} rows with null values")
+        
+        if clean_data.empty:
+            raise ValueError("No valid data remains after cleaning")
+        
+        return clean_data
+    
+    def map_to_z1_series(self, 
+                         fwtw_data: pd.DataFrame,
+                         available_z1_series: Optional[Set[str]] = None) -> pd.DataFrame:
+        """
+        Map FWTW bilateral positions to Z.1 FL (level) series codes.
+        
+        FL represents levels/stocks that are not seasonally adjusted.
+        Both holder and issuer positions map to FL series.
+        
+        Parameters:
+        -----------
+        fwtw_data : pd.DataFrame
+            FWTW data with required columns
+        available_z1_series : Set[str], optional
+            Set of available Z.1 series for validation (base codes without .Q)
+            
+        Returns:
+        --------
+        pd.DataFrame with columns:
+            - date: Position date
+            - holder_code: 2-digit sector code
+            - issuer_code: 2-digit sector code
+            - instrument_code: 5-digit instrument code
+            - holder_series: FL series for holder (e.g., FL1530641005)
+            - issuer_series: FL series for issuer (e.g., FL1030641005)
+            - holder_flow_series: FU series for holder
+            - issuer_flow_series: FU series for issuer
+            - level: Position value (stock amount)
+            - holder_name: Sector name or from data
+            - issuer_name: Sector name or from data
+            - instrument_name: From data if available
+        """
+        # Validate input data
+        clean_data = self.validate_fwtw_data(fwtw_data)
+        
+        # Map each row
+        mapped_rows = []
+        
+        for _, row in clean_data.iterrows():
             holder_code = row['Holder Code']
             issuer_code = row['Issuer Code']
             instrument_code = row['Instrument Code']
             
-            # Track unmapped items but don't skip them if include_all=True
-            if holder_code not in self.valid_sectors:
-                self.unmapped_items.append(('holder', holder_code))
-                if not include_all:
-                    continue
-                    
-            if issuer_code not in self.valid_sectors:
-                self.unmapped_items.append(('issuer', issuer_code))
-                if not include_all:
-                    continue
+            # Build Z.1 series codes
+            # FL = Level (stock), not seasonally adjusted
+            # FU = Flow (transaction), not seasonally adjusted
+            # Suffix: digit 8 is always 0, digit 9 is 5 (calculated series)
+            holder_series = f"FL{holder_code}{instrument_code}05"
+            issuer_series = f"FL{issuer_code}{instrument_code}05"
+            holder_flow_series = f"FU{holder_code}{instrument_code}05"
+            issuer_flow_series = f"FU{issuer_code}{instrument_code}05"
             
-            # Build Z.1 series codes - CORRECTED
-            # Both use FL prefix (levels), add .Q suffix for quarterly
-            holder_series = f"FL{holder_code}{instrument_code}05.Q"
-            issuer_series = f"FL{issuer_code}{instrument_code}05.Q"
-
-            # Check availability if series list provided
-            include_holder = True
-            include_issuer = True
-
-            if available_z1_series and not include_all:
-                include_holder = holder_series in available_z1_series
-                include_issuer = issuer_series in available_z1_series
-                
-                if not include_holder and not include_issuer:
-                    continue
-
-            mapped_positions.append({
+            # Check if series exist in Z.1 if validation set provided
+            if available_z1_series is not None:
+                if holder_series not in available_z1_series and issuer_series not in available_z1_series:
+                    continue  # Skip if neither series exists
+            
+            mapped_rows.append({
                 'date': row['Date'],
                 'holder_code': holder_code,
                 'issuer_code': issuer_code,
                 'instrument_code': instrument_code,
-                'holder_series': holder_series if include_holder else None,  # Renamed from asset_series
-                'issuer_series': issuer_series if include_issuer else None,  # Renamed from liability_series
-                'level': float(row['Level']),
-                'holder_name': row.get('Holder Name', f'Sector_{holder_code}'),
-                'issuer_name': row.get('Issuer Name', f'Sector_{issuer_code}'),
-                'instrument_name': row.get('Instrument Name', f'Inst_{instrument_code}')
+                'holder_series': holder_series,
+                'issuer_series': issuer_series,
+                'holder_flow_series': holder_flow_series,
+                'issuer_flow_series': issuer_flow_series,
+                'level': row['Level'],
+                'holder_name': row.get('Holder Name', self.SECTOR_CODES.get(holder_code, f'Sector {holder_code}')),
+                'issuer_name': row.get('Issuer Name', self.SECTOR_CODES.get(issuer_code, f'Sector {issuer_code}')),
+                'instrument_name': row.get('Instrument Name', f'Instrument {instrument_code}')
             })
         
-        if self.unmapped_items:
-            unique_unmapped = set(self.unmapped_items)
-            logger.warning(f"Found {len(unique_unmapped)} unmapped codes (included anyway): {list(unique_unmapped)[:5]}")
+        result = pd.DataFrame(mapped_rows)
         
-        return pd.DataFrame(mapped_positions)
+        if result.empty:
+            logger.warning("No FWTW positions mapped to Z.1 series")
+        else:
+            logger.info(f"Mapped {len(result)} FWTW positions to Z.1 series")
+            logger.info(f"Unique bilateral relationships: {len(result.groupby(['holder_code', 'issuer_code', 'instrument_code']))}")
+        
+        return result
+    
+    def calculate_bilateral_flows(self, mapped_fwtw: pd.DataFrame) -> pd.DataFrame:
+        """
+        Calculate bilateral flows from changes in FWTW stock positions.
+        Flow[t] = Level[t] - Level[t-1]
+        
+        Parameters:
+        -----------
+        mapped_fwtw : pd.DataFrame
+            Output from map_to_z1_series()
+            
+        Returns:
+        --------
+        pd.DataFrame with bilateral flows
+        """
+        if mapped_fwtw.empty:
+            return pd.DataFrame()
+        
+        # Sort by date
+        mapped_fwtw = mapped_fwtw.sort_values('date')
+        
+        # Group by bilateral relationship
+        grouped = mapped_fwtw.groupby(['holder_code', 'issuer_code', 'instrument_code'])
+        
+        flow_records = []
+        
+        for (holder, issuer, instrument), group in grouped:
+            group = group.sort_values('date')
+            
+            if len(group) < 2:
+                continue  # Need at least 2 periods for flow
+            
+            # Calculate flows as first differences
+            for i in range(1, len(group)):
+                current = group.iloc[i]
+                previous = group.iloc[i-1]
+                
+                flow_records.append({
+                    'date': current['date'],
+                    'holder_code': holder,
+                    'issuer_code': issuer,
+                    'instrument_code': instrument,
+                    'holder_flow_series': current['holder_flow_series'],
+                    'issuer_flow_series': current['issuer_flow_series'],
+                    'flow': current['level'] - previous['level'],
+                    'level_t': current['level'],
+                    'level_t_minus_1': previous['level']
+                })
+        
+        return pd.DataFrame(flow_records)
