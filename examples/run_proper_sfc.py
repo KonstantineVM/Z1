@@ -32,6 +32,7 @@ from src.utils.visualization import VisualizationManager
 # Import the proper SFC model
 from src.models.sfc_kalman_proper import ProperSFCKalmanFilter
 
+from src.visualization.sfc_visualization import SFCVisualizationManager
 
 class ProperSFCAnalysis:
     """
@@ -188,11 +189,10 @@ class ProperSFCAnalysis:
             self._save_results()
             
             # Phase 7: Visualization
-            if self.config.get('create_visualizations', True):
-                self.logger.info("\n" + "="*50)
-                self.logger.info("PHASE 7: VISUALIZATION")
-                self.logger.info("="*50)
-                self._create_visualizations()
+            self.logger.info("\n" + "="*50)
+            self.logger.info("PHASE 7: VISUALIZATION")
+            self.logger.info("="*50)
+            self._create_visualizations()
             
             self.logger.info("\n" + "="*70)
             self.logger.info("✓ PROPER SFC ANALYSIS COMPLETED SUCCESSFULLY!")
@@ -907,13 +907,43 @@ class ProperSFCAnalysis:
         """Create visualizations."""
         self.logger.info("Creating visualizations...")
         
-        # Would implement visualization of:
-        # - Constraint violations over time
-        # - Stock-flow consistency
-        # - Filtered vs actual series
-        # - Shock decomposition
-        # - FWTW network structure if available
-        
+        try:
+            # Initialize visualization manager
+            from src.visualization.sfc_visualization import SFCVisualizationManager
+            viz = SFCVisualizationManager(
+                output_dir=self.results.output_dir / 'figures'
+            )
+            
+            # Get filtered series from the model
+            series_dict = self.model.get_filtered_series(self.fitted_results)
+            
+            # Get model diagnostics as a dictionary (not a set)
+            model_diagnostics = self.model.get_diagnostics()
+            
+            # Get constraint validation results if available
+            constraint_diagnostics = None
+            if hasattr(self, 'constraint_validation'):
+                constraint_diagnostics = self.constraint_validation
+            
+            # Create visualizations
+            viz.create_all_visualizations(
+                z1_data=self.z1_data,
+                filtered_series=series_dict.get('filtered'),
+                smoothed_series=series_dict.get('smoothed'),
+                stock_flow_pairs=self.model.stock_flow_pairs,
+                fwtw_data=self.fwtw_data,
+                asset_liability_map=self.asset_liability_map,
+                model_diagnostics=model_diagnostics,  # Pass the dictionary, not a set
+                constraint_diagnostics=constraint_diagnostics
+            )
+            
+            self.logger.info("  Visualization complete")
+            
+        except Exception as e:
+            self.logger.error(f"Visualization failed: {e}")
+            import traceback
+            traceback.print_exc()
+            
         self.logger.info("  Visualization complete")
 
 
