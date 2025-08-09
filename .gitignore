@@ -205,7 +205,7 @@ secrets/
 *.7z
 
 # Model files
-models/
+# models/
 *.joblib
 *.h5
 *.pt
